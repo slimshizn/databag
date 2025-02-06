@@ -16,7 +16,7 @@ jobs:
     - name: Setup Node
       uses: actions/setup-node@v3
       with:
-        node-version: 16
+        node-version: 18
 
     - name: Build React
       run: |
@@ -28,7 +28,7 @@ jobs:
     - name: Setup Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.17.5
+        go-version: 1.18.10
 
     - name: Build Go
       run: |
@@ -57,7 +57,7 @@ jobs:
           yarn jest
   
     - name: Export
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: webapp
         path: net/web/build/*

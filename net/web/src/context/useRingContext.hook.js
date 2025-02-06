@@ -15,8 +15,8 @@ export function useRingContext() {
     localVideo: false,
     localAudio: false,
     remoteStream: null,
-    removeVideo: false,
-    removeAudio: false,
+    remoteVideo: false,
+    remoteAudio: false,
   });
   const access = useRef(null);
 
@@ -134,8 +134,31 @@ export function useRingContext() {
     processing.current = false;
   }
 
-  const transmit = async (policy, ice) => {
+  const getAudioStream = async (audioId) => {
+    try {
+      if (audioId) {
+        return await navigator.mediaDevices.getUserMedia({ video: false, audio: { deviceId: audioId } });
+      }
+    }
+    catch (err) {
+      console.log(err);
+    }
+    return await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+  }
 
+  const getVideoStream = async (videoId) => {
+    try {
+      if (videoId) {
+        return await navigator.mediaDevices.getUserMedia({ video: { deviceId: videoId }, audio: false });
+      }
+    }
+    catch (err) {
+      console.log(err);
+    }
+    return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  }
+
+  const transmit = async (policy, ice, audioId) => {
     pc.current = new RTCPeerConnection({ iceServers: ice });
     pc.current.ontrack = (ev) => {
       if (!stream.current) {
@@ -164,10 +187,7 @@ export function useRingContext() {
     };
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: false,
-        audio: true,
-      });
+      const stream = await getAudioStream(audioId);
       accessAudio.current = true;
       updateState({ localAudio: true });
       for (const track of stream.getTracks()) {
@@ -182,7 +202,7 @@ export function useRingContext() {
     }
   }
 
-  const connect = async (policy, node, token, clearRing, clearAlive, ice) => {
+  const connect = async (policy, audioId, node, token, clearRing, clearAlive, ice) => {
 
     // connect signal socket
     connected.current = false;
@@ -206,7 +226,7 @@ export function useRingContext() {
           updateState({ callStatus: "connected" });
           if (policy === 'polite') {
             connected.current = true;
-            transmit('polite', ice);
+            transmit('polite', ice, audioId);
             polite();
           }
         }
@@ -251,13 +271,13 @@ export function useRingContext() {
         audioTrack.current.stop();
         audioTrack.current = null;
       }
-      updateState({ callStatus: null });
+      updateState({ callStatus: null, removeStream: null, localStream: null, remoteVideo: false, remoteAudio: false, localVideo: false, localAudio: false });
     }
     ws.current.onopen = async () => {
       ws.current.send(JSON.stringify({ AppToken: token }));
       if (policy === 'impolite') {
         connected.current = true;
-        transmit('impolite', ice);
+        transmit('impolite', ice, audioId);
         impolite();
       }
     }
@@ -280,9 +300,9 @@ export function useRingContext() {
     clearToken: () => {
       access.current = null;
     },
-    ring: (cardId, callId, calleeToken, iceUrl, iceUsername, icePassword) => {
+    ring: (cardId, callId, calleeToken, ice) => {
       const key = `${cardId}:${callId}`
-      const call = ringing.current.get(key) || { cardId, calleeToken, callId, iceUrl, iceUsername, icePassword }
+      const call = ringing.current.get(key) || { cardId, calleeToken, callId, ice }
       call.expires = Date.now() + EXPIRE;
       ringing.current.set(key, call);
       updateState({ ringing: ringing.current });
@@ -314,12 +334,12 @@ export function useRingContext() {
         }
       }
     },
-    accept: async (cardId, callId, contactNode, contactToken, calleeToken, iceUrl, iceUsername, icePassword) => {
+    accept: async (cardId, callId, contactNode, contactToken, calleeToken, ice, audioId) => {
+console.log("ACCEPT", ice);
+
       if (calling.current) {
         throw new Error("active session");
       }
-
-      const ice = [{ urls: iceUrl, username: iceUsername, credential: icePassword }];
 
       const key = `${cardId}:${callId}`
       const call = ringing.current.get(key);
@@ -329,7 +349,7 @@ export function useRingContext() {
         updateState({ ringing: ringing.current, callStatus: "connecting", cardId });
 
         calling.current = { callId, contactNode, contactToken, host: false };
-        await connect('impolite', contactNode, calleeToken, () => {}, () => {}, ice);
+        await connect('impolite', audioId, contactNode, calleeToken, () => {}, () => {}, ice);
       }
     },
     end: async () => {
@@ -359,7 +379,7 @@ export function useRingContext() {
         }
       }
     },
-    call: async (cardId, contactNode, contactToken) => {
+    call: async (cardId, contactNode, contactToken, audioId) => {
       if (calling.current) {
         throw new Error("active session");
       }
@@ -374,13 +394,14 @@ export function useRingContext() {
       }
       catch (err) {
         calling.current = null;
-        updateState({ callStatus: null });
+        updateState({ callStatus: null, remoteStream: null, localStream: null, remoteVideo: false, remoteAudio: false, localVideo: false, localAudio: false });
       }
 
       let index = 0;
-      const { id, keepAlive, callerToken, calleeToken, iceUrl, iceUsername, icePassword } = call;
+      const { id, keepAlive, callerToken, calleeToken, ice } = call;
       try {
-        await addContactRing(contactNode, contactToken, { index, callId: id, calleeToken, iceUrl, iceUsername, icePassword });
+        const turn = ice[ice.length - 1]; //backwards compatibility
+        await addContactRing(contactNode, contactToken, { index, callId: id, calleeToken, ice, iceUrl: turn.urls, iceUsername: turn.username, icePassword: turn.credential });
       }
       catch (err) {
         console.log(err);
@@ -401,7 +422,8 @@ export function useRingContext() {
             }
           }
           else {
-            await addContactRing(contactNode, contactToken, { index, callId: id, calleeToken, iceUrl, iceUsername, icePassword });
+            const turn = ice[ice.length - 1];
+            await addContactRing(contactNode, contactToken, { index, callId: id, calleeToken, ice, iceUrl: turn.urls, iceUsername: turn.username, icePassword: turn.credential });
             index += 1;
           }
         }
@@ -412,15 +434,11 @@ export function useRingContext() {
 
       updateState({ callStatus: "ringing" });
       calling.current = { callId: id, host: true };
-      const ice = [{ urls: iceUrl, username: iceUsername, credential: icePassword }];
-      await connect('polite', window.location.host, callerToken, () => clearInterval(ringInterval), () => clearInterval(aliveInterval), ice);
+      await connect('polite', audioId, window.location.host, callerToken, () => clearInterval(ringInterval), () => clearInterval(aliveInterval), ice);
     },
-    enableVideo: async () => {
+    enableVideo: async (videoId) => {
       if (!accessVideo.current) {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
+        const stream = await getVideoStream(videoId);
         accessVideo.current = true;
         accessAudio.current = true;
         updateState({ localStream: stream });
@@ -456,6 +474,24 @@ export function useRingContext() {
         audioTrack.current.enabled = false;
         updateState({ localAudio: false });
       }
+    },
+    getDevices: async (type) => {
+      const filtered = new Map();
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      devices.filter(item => item.kind === type + 'input').forEach(item => {
+        if (item && item.label) {
+          const entry = filtered.get(item.groupId);
+          if (entry) {
+            if (item.label && item.label.length < entry.label.length) {
+              filtered.set(item.groupId, item);
+            }
+          }
+          else {
+            filtered.set(item.groupId, item);
+          }
+        }
+      });
+      return Array.from(filtered.values());
     },
   }
 

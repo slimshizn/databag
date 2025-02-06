@@ -3,7 +3,7 @@ import { StoreContext } from 'context/StoreContext';
 import { ChannelContext } from 'context/ChannelContext';
 import { CardContext } from 'context/CardContext';
 import { AccountContext } from 'context/AccountContext';
-import { ViewportContext } from 'context/ViewportContext';
+import { SettingsContext } from 'context/SettingsContext';
 import { ProfileContext } from 'context/ProfileContext';
 import { getCardByGuid } from 'context/cardUtil';
 import { isUnsealed, getChannelSeals, getContentKey, decryptChannelSubject, decryptTopicSubject } from 'context/sealUtil';
@@ -16,6 +16,9 @@ export function useChannels() {
     display: null,
     channels: [],
     showAdd: false,
+    allowAdd: false,
+    strings: {},
+    menuStyle: {},
   });
 
   const profile = useContext(ProfileContext);
@@ -23,7 +26,7 @@ export function useChannels() {
   const channel = useContext(ChannelContext);
   const account = useContext(AccountContext);
   const store = useContext(StoreContext);
-  const viewport = useContext(ViewportContext);
+  const settings = useContext(SettingsContext);
 
   const channels = useRef(new Map());
 
@@ -75,7 +78,7 @@ export function useChannels() {
     // set logo and label
     if (memberCount === 0) {
       item.img = 'solution';
-      item.label = 'Notes';
+      item.label = state.strings.notes;
     }
     else if (memberCount === 1) {
       item.logo = logo;
@@ -253,14 +256,19 @@ export function useChannels() {
       }
     });
 
-    updateState({ channels: filtered });
+    const sealKey = account.state.sealKey?.public && account.state.sealKey?.private;
+    const allowUnsealed = account.state.status?.allowUnsealed;
+    const allowAdd = allowUnsealed || sealKey;
+
+    updateState({ channels: filtered, allowAdd });
 
     // eslint-disable-next-line
   }, [account.state, store.state, card.state, channel.state, filter]);
 
   useEffect(() => {
-    updateState({ display: viewport.state.display });
-  }, [viewport]);
+    const { display, strings, menuStyle } = settings.state;
+    updateState({ display, strings, menuStyle });
+  }, [settings.state]);
 
   const actions = {
     onFilter: (value) => {

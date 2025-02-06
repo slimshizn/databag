@@ -81,6 +81,12 @@ type Account struct {
   Updated           int64           `gorm:"autoUpdateTime"`
   Disabled          bool            `gorm:"not null;default:false"`
   Searchable        bool            `gorm:"not null;default:false"`
+  MFAEnabled        bool            `gorm:"not null;default:false"`
+  MFAConfirmed      bool            `gorm:"not null;default:false"`
+  MFASecret         string
+  MFAAlgorithm      string
+  MFAFailedTime     int64
+  MFAFailedCount    uint
   Forward           string
   AccountDetail     AccountDetail
   Apps              []App
@@ -111,6 +117,9 @@ type Session struct {
   PushEnabled       bool
   PushToken         string
   PushType          string
+  WebEndpoint       string
+  WebPublicKey      string
+  WebAuth           string
   Created           int64           `gorm:"autoCreateTime"`
   Account           Account         `gorm:"references:GUID"`
   Token             string          `gorm:"not null;index:sessguid,unique"`

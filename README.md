@@ -4,8 +4,12 @@
 <div align="center">
   <a href="#"><img src="/doc/icon_v2.png" width="8%" style="border-radius:50%"></a>
   <h3 align="center">Databag</h3>
-  <p align="center">Communication for the Decentralized Web</p>
+  <p align="center">A federated messenger for self-hosting</p>
 </div>
+
+<p align="center">
+  <a href="/doc/design_overview.md">-> Design Overview <-</a>
+</p>
 
 <br>
 
@@ -19,17 +23,19 @@
 </p>
 <br>
 
-Databag is a selfhosted messaging service. Notable features include:
+Databag is designed for efficiency, consuming minimal hosting resources. Notable features include:
 - Decentralized (direct communication between app and server node)
 - Federated (accounts on different nodes can communicate)
 - Public-Private key based identity (not bound to any blockchain or hosting domain)
-- End-to-End encryption (the hosting admin cannot view sealed topics, default unsealed)
+- End-to-End encryption (the hosting admin cannot view topics if sealed)
 - Audio and Video Calls (nat traversal requires separate relay server)
 - Topic based threads (messages organized by topic not contacts)
+- Unlimited participants (no limit on group thread members)
 - Lightweight (server can run on a raspberry pi zero v1.3)
 - Low latency (use of websockets for push events to avoid polling)
 - Unlimited accounts per node (host for your whole family)
 - Mobile alerts for new contacts, messages, and calls (supports UnifiedPush, FCM, APN)
+- Multi-Factor Authentication (integrates with TOTP apps)
 
 <br>
 <p align="center">
@@ -44,16 +50,32 @@ Databag is a selfhosted messaging service. Notable features include:
   </a>
 </p>
 
-The app is available on fdroid as well as the google and apple stores. You can test out the project [here](https://databag.coredb.org/#/create), but don't post anything important as this server is regularly wiped. Feedback on the UI/UX, bugs or features is greatly appreciated.
+The app is available on fdroid as well as the google and apple stores. You can test out the project [here](https://databag.coredb.org/#/create), but don't post anything important as this server is regularly wiped.
+### Design 
+Read the [Design Guidelines](https://github.com/balzack/databag/blob/main/.design/DESIGN.md). Link to [Figma File](https://www.figma.com/design/eVFi8bYlybn5KeyEePEaey/Databag---Github?node-id=1-6&t=Is2AiTfwktFO5aY0-1). Feel free to duplicate the Figma file to edit. Feedback on the UI/UX, bugs or features is greatly appreciated.
 
 ## Installation
 
 To use databag, you will need a DNS name pointing to your node with a certificate. You can deploy a node manually, but you will have a much easier time using a container service. Containers for arm64 and amd64 are available [here](https://hub.docker.com/r/balzack/databag/tags). 
 
-### Docker Compose Command
+### Docker Compose 
 
-From the net/container sub directory:
-  - sudo docker-compose -f compose.yaml -p databag up
+Launch with dockerhub container using docker compose:
+
+#### Standard launch
+```shell
+# From the net/container sub directory:
+docker-compose -f compose.yaml -p databag up
+```
+
+#### Launch with certbot https certificate
+```shell
+# FIRST: create a DNS entry in your DNS to point your desired subdomain to your host
+# SECOND: edit the net/container/docker-compose-swag.yml to include your domain name
+# THIRD: From the root of the project directory:
+mkdir -p ~/appdata
+docker-compose -f net/container/docker-compose-swag.yml -p databag up
+```
 
 ### Example with Portainer and Nginx Proxy Manager
 
@@ -128,18 +150,24 @@ From Your Browser:
 
 ### Other installation options
 
-Instructions for installing without a container on a Raspberry Pi Zero are [here](/doc/pizero.md).
+Install without a container on a Raspberry Pi Zero [here](/doc/pizero.md).
 
-Instructions for installing without a container in AWS are [here](/doc/aws.md).
+Install without a container in AWS [here](/doc/aws.md).
 
-1-click installs in [CapRover](https://caprover.com/), [CasaOS](https://casaos.io), [Unraid](https://unraid.net/), [Runtipi](https://www.runtipi.io/)
+Integrate Databag in an OpenWrt firmware [here](/doc/openwrt.md).
+
+1-click installs in [CapRover](https://caprover.com/), [CasaOS](https://casaos.io), [Unraid](https://unraid.net/), [Runtipi](https://www.runtipi.io/), [Kubero](https://www.kubero.dev/), [Umbrel](https://umbrel.com/)
 
 ## Audio and Video Calls
 
-Databag provides audio and video calling and relies on a STUN/TURN relay server for NAT traversal. Testing was done with both [coturn](https://github.com/coturn/coturn) and [pion](https://github.com/pion/turn) and should work with any implementation. Instructions for installing a coturn server are provided [here](https://gabrieltanner.org/blog/turn-server/).
+Databag provides audio and video calling and relies on a STUN/TURN relay server for NAT traversal. Testing was done with both [coturn](https://github.com/coturn/coturn) and [cloudflare](https://developers.cloudflare.com/calls/turn/) and should work with any implementation. Instructions for installing a coturn server are provided [here](https://gabrieltanner.org/blog/turn-server/).
 
-If you want to enable audio and video calls, you should setup your own relay server. For testing purposes you can however use the demo relay server configuration. In the admin configuration modal, set:
+If you want to enable audio and video calls, you should setup your own relay server or use the cloudflare [turn service](https://developers.cloudflare.com/calls/turn/). For testing purposes you can however use the demo relay server configuration. In the admin configuration modal, set:
   - Enable WebRTC Calls: -switch on-
   - WebRTC Server URL: turn:34.210.172.114:3478?transport=udp
   - WebRTC Username: user
   - WebRTC Password: pass
+
+### Roadmap
+
+Please add any missing features; [here](/doc/backlog.md) is the current backlog. Features are prioritized based on interest from the community.

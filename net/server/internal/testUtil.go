@@ -618,8 +618,16 @@ func addTestAccount(username string) (guid string, token string, err error) {
 	var profile Profile
 	var login = username + ":pass"
 
+  // admin login
+  r, w, _ = NewRequest("PUT", "/admin/access?token=pass", nil);
+  SetAdminAccess(w, r)
+  var session string
+  if ReadResponse(w, &session) != nil {
+    panic("failed to login as admin")
+  }
+
 	// get account token
-	if r, w, err = NewRequest("POST", "/admin/accounts?token=pass", nil); err != nil {
+	if r, w, err = NewRequest("POST", "/admin/accounts?token=" + session, nil); err != nil {
 		return
 	}
 	AddNodeAccount(w, r)
@@ -650,6 +658,13 @@ func addTestAccount(username string) (guid string, token string, err error) {
 		return
 	}
 	token = access.AppToken
+
+  // set to searchable
+  searchable := false
+  if r, w, err = NewRequest("PUT", "/account/searchable?agent="+token, &searchable); err != nil {
+    return
+  }
+  SetAccountSearchable(w, r);
 
 	// authorize claim
 	if r, w, err = NewRequest("PUT", "/authorize?agent="+token, "1234abcd"); err != nil {

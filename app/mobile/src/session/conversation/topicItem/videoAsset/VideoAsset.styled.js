@@ -47,6 +47,13 @@ export const styles = StyleSheet.create({
     paddingRight: 16,
     paddingTop: 16,
   },
+  share: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    paddingLeft: 16,
+    paddingTop: 16,
+  },
   loading: {
     position: 'absolute',
     display: 'flex',
@@ -59,6 +66,24 @@ export const styles = StyleSheet.create({
     paddingTop: 16,
     fontSize: 12,
     color: '#dddddd',
+  },
+  downloaded: {
+    top: 0,
+    position: 'absolute',
+    marginTop: 8,
+    display: 'flex',
+    backgroundColor: Colors.grey,
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 8,
+    paddingRight: 8,
+    paddingTop: 2,
+    paddingBottom: 2,
+  },
+  downloadedLabel: {
+    color: Colors.white,
+    paddingLeft: 8,
   },
 })
 

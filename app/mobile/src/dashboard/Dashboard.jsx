@@ -1,4 +1,4 @@
-import { ScrollView, TextInput, Alert, Switch, TouchableOpacity, View, Text, Modal, FlatList, KeyboardAvoidingView } from 'react-native';
+import { ScrollView, Image, TextInput, Alert, Switch, ActivityIndicator, TouchableOpacity, View, Text, Modal, FlatList, KeyboardAvoidingView } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AntIcon from 'react-native-vector-icons/AntDesign';
@@ -9,12 +9,50 @@ import { useDashboard } from './useDashboard.hook';
 import { Logo } from 'utils/Logo';
 import { BlurView } from "@react-native-community/blur";
 import { InputField } from 'utils/InputField';
+import Colors from 'constants/Colors';
+import { InputCode } from 'utils/InputCode';
 
 export function Dashboard(props) {
 
   const location = useLocation();
-  const { config, server, token } = location.state;
-  const { state, actions } = useDashboard(config, server, token); 
+  const { server, token, mfa } = location.state;
+  const { state, actions } = useDashboard(server, token, mfa); 
+
+  const enableMFA = async () => {
+    try {
+      await actions.enableMFA();
+    }
+    catch (err) {
+      Alert.alert(
+        state.strings.error,
+        state.strings.tryAgain,
+      );
+    }
+  }
+
+  const disableMFA = async () => {
+    try {
+      await actions.disableMFA();
+    }
+    catch (err) {
+      Alert.alert(
+        state.strings.error,
+        state.strings.tryAgain,
+      );
+    }
+  }
+
+  const confirmMFA = async () => {
+    try {
+      await actions.confirmMFA();
+    }
+    catch (err) {
+      Alert.alert(
+        state.strings.error,
+        state.strings.tryAgain,
+      );
+    }
+  }
 
   const saveConfig = async () => {
     try {
@@ -24,8 +62,8 @@ export function Dashboard(props) {
     catch (err) {
       console.log(err);
       Alert.alert(
-        'Failed to Save Settings',
-        'Please try again.',
+        state.strings.error,
+        state.strings.tryAgain,
       );
     }
   }
@@ -37,8 +75,8 @@ export function Dashboard(props) {
     catch (err) {
       console.log(err);
       Alert.alert(
-        'Failed to Generate Access Token',
-        'Please try again.',
+        state.strings.error,
+        state.strings.tryAgain,
       );
     }
   }
@@ -50,8 +88,8 @@ export function Dashboard(props) {
     catch (err) {
       console.log(err);
       Alert.alert(
-        'Failed to Generate Access Token',
-        'Please try again.',
+        state.strings.error,
+        state.strings.tryAgain,
       );
     }
   }
@@ -67,8 +105,8 @@ export function Dashboard(props) {
     catch (err) {
       console.log(err);
       Alert.alert(
-        'Failed to Update Account',
-        'Please try again.',
+        state.strings.error,
+        state.strings.tryAgain,
       );
     }
   }
@@ -83,6 +121,16 @@ export function Dashboard(props) {
         <TouchableOpacity onPress={actions.showEditConfig}>
           <AntIcon style={styles.icon} name={'setting'} size={20} />
         </TouchableOpacity>
+        { !state.mfaEnabled && mfa && (
+          <TouchableOpacity onPress={enableMFA}>
+            <MatIcon style={styles.icon} name={'shield-lock-open-outline'} size={20} />
+          </TouchableOpacity>
+          )}
+        { state.mfaEnabled && mfa && (
+          <TouchableOpacity onPress={disableMFA}>
+            <MatIcon style={styles.icon} name={'shield-lock-outline'} size={20} />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity onPress={actions.logout}>
           <AntIcon style={styles.icon} name={'logout'} size={20} /> 
         </TouchableOpacity>
@@ -191,6 +239,15 @@ export function Dashboard(props) {
                     onValueChange={actions.setPushSupported} trackColor={styles.track}/>
                 </TouchableOpacity>
 
+                { state.transformSupported && (
+                  <TouchableOpacity style={styles.media} activeOpacity={1}
+                      onPress={() => actions.setAllowUnsealed(!state.allowUnsealed)}>
+                    <Text style={styles.modalLabel}>{ state.strings.allowUnsealed }</Text>
+                    <Switch style={styles.switch} value={state.allowUnsealed}
+                      onValueChange={actions.setAllowUnsealed} trackColor={styles.track}/>
+                  </TouchableOpacity>
+                )}
+
                 <View style={styles.label}></View>
 
                 <TouchableOpacity style={styles.media} activeOpacity={1}
@@ -211,6 +268,12 @@ export function Dashboard(props) {
                   <Switch style={styles.switch} value={state.enableVideo}
                     onValueChange={actions.setEnableVideo} trackColor={styles.track}/>
                 </TouchableOpacity>
+                <TouchableOpacity style={styles.media} activeOpacity={1}
+                    onPress={() => actions.setEnableBinary(!state.enableBinary)}>
+                  <Text style={styles.modalLabel}>{ state.strings.enableBinary }</Text>
+                  <Switch style={styles.switch} value={state.enableBinary}
+                    onValueChange={actions.setEnableBinary} trackColor={styles.track}/>
+                </TouchableOpacity>
 
                 <View style={styles.label}></View>
                 <TouchableOpacity style={styles.ice} activeOpacity={1}
@@ -220,33 +283,48 @@ export function Dashboard(props) {
                     onValueChange={actions.setEnableIce} trackColor={styles.track}/>
                 </TouchableOpacity>
 
-                <InputField style={styles.field}
-                  label={state.strings.relayUrl}
-                  value={state.iceUrl}
-                  autoCapitalize={'none'}
-                  spellCheck={false}
-                  disabled={!state.enableIce}
-                  onChangeText={actions.setIceUrl}
-                />
+                { state.enableIce && (
+                  <>
+                    { state.iceServiceFlag != null && (
+                      <TouchableOpacity style={styles.ice} activeOpacity={1}
+                          onPress={() => actions.setIceServiceFlag(!state.iceServiceFlag)}>
+                        <Text style={styles.modalLabel}>{ state.strings.iceService }</Text>
+                        <Switch style={styles.switch} value={state.iceServiceFlag}
+                          onValueChange={actions.setIceServiceFlag} trackColor={styles.track}/>
+                      </TouchableOpacity>
+                    )}
 
-                <InputField style={styles.field}
-                  label={state.strings.relayUsername}
-                  value={state.iceUsername}
-                  autoCapitalize={'none'}
-                  spellCheck={false}
-                  disabled={!state.enableIce}
-                  onChangeText={actions.setIceUsername}
-                />
+                    { !state.iceServiceFlag && (
+                      <InputField style={styles.field}
+                        label={state.strings.relayUrl}
+                        value={state.iceUrl}
+                        autoCapitalize={'none'}
+                        spellCheck={false}
+                        disabled={!state.enableIce}
+                        onChangeText={actions.setIceUrl}
+                      />
+                    )}
 
-                <InputField style={styles.field}
-                  label={state.strings.relayPassword}
-                  value={state.icePassword}
-                  autoCapitalize={'none'}
-                  spellCheck={false}
-                  disabled={!state.enableIce}
-                  onChangeText={actions.setIcePassword}
-                />
-  
+                    <InputField style={styles.field}
+                      label={state.iceServiceFlag ? 'TURN_KEY_ID' : state.strings.relayUsername}
+                      value={state.iceUsername}
+                      autoCapitalize={'none'}
+                      spellCheck={false}
+                      disabled={!state.enableIce}
+                      onChangeText={actions.setIceUsername}
+                    />
+
+                    <InputField style={styles.field}
+                      label={state.iceServiceFlag ? 'TURN_KEY_API_TOKEN' : state.strings.relayPassword}
+                      value={state.icePassword}
+                      autoCapitalize={'none'}
+                      spellCheck={false}
+                      disabled={!state.enableIce}
+                      onChangeText={actions.setIcePassword}
+                    />
+                  </>
+                )}
+
                 <View style={styles.pad} />
 
               </ScrollView>
@@ -322,6 +400,60 @@ export function Dashboard(props) {
               </View>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={state.mfaModal}
+        supportedOrientations={['portrait', 'landscape']}
+        onRequestClose={actions.dismissMFA}
+      >
+        <View>
+          <BlurView style={styles.mfaOverlay} blurType={Colors.overlay} blurAmount={2} reducedTransparencyFallbackColor="black" />
+          <KeyboardAvoidingView style={styles.mfaBase} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <View style={styles.mfaContainer}>
+              <Text style={styles.mfaTitle}>{ state.strings.mfaTitle }</Text>
+              <Text style={styles.mfaDescription}>{ state.strings.mfaSteps }</Text>
+              { state.mfaImage && (
+                <Image source={{ uri: state.mfaImage }} style={{ width: 128, height: 128 }} />
+              )}
+              { !state.mfaImage && !state.mfaText && (
+                <ActivityIndicator style={styles.modalBusy} animating={true} color={Colors.primaryButton} />
+              )}
+              { state.mfaText && (
+                <TouchableOpacity style={styles.mfaSecret} onPress={() => Clipboard.setString(state.mfaText)}>
+                  <Text style={styles.mfaText}>{ state.mfaText }</Text>
+                  <AntIcon style={styles.mfaIcon} name={'copy1'} size={20} />
+                </TouchableOpacity>
+              )}
+              <InputCode style={{ width: '100%' }} onChangeText={actions.setCode} />
+              <View style={styles.mfaError}>
+                { state.mfaError == '401' && (
+                  <Text style={styles.mfaErrorLabel}>{ state.strings.mfaError }</Text>
+                )}
+                { state.mfaError == '429' && (
+                  <Text style={styles.mfaErrorLabel}>{ state.strings.mfaDisabled }</Text>
+                )}
+              </View>
+              <View style={styles.mfaControl}>
+                <TouchableOpacity style={styles.mfaCancel} onPress={actions.dismissMFA}>
+                  <Text style={styles.mfaCancelLabel}>{ state.strings.cancel }</Text>
+                </TouchableOpacity>
+                { state.mfaCode != '' && (
+                  <TouchableOpacity style={styles.mfaConfirm} onPress={actions.confirmMFA}>
+                    <Text style={styles.mfaConfirmLabel}>{ state.strings.mfaConfirm }</Text>
+                  </TouchableOpacity>
+                )}
+                { state.mfaCode == '' && (
+                  <View style={styles.mfaDisabled}>
+                    <Text style={styles.mfaDisabledLabel}>{ state.strings.mfaConfirm }</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 

@@ -35,6 +35,8 @@ type AccountStatus struct {
 
 	Searchable bool `json:"searchable"`
 
+  MFAEnabled bool `json:"mfaEnabled"`
+
 	PushEnabled bool `json:"pushEnabled"`
 
   Sealable bool `json:"sealable"`
@@ -42,11 +44,22 @@ type AccountStatus struct {
 	Seal *Seal `json:"seal,omitempty"`
 
   EnableIce bool `json:"enableIce"`
+
+  AllowUnsealed bool `json:"allowUnsealed"`
+
+	WebPushKey string `json:"webPushKey"`
 }
 
 //Announce initial message sent on websocket
 type Announce struct {
 	AppToken string `json:"appToken"`
+}
+
+//MFASecret values for configuring TOTP
+type MFASecret struct {
+  Image string `json:"secretImage"`
+
+  Text string `json:"secretText"`
 }
 
 //Notification describes type of notifications to receive
@@ -193,6 +206,8 @@ type ChannelDetail struct {
   EnableAudio bool `json:"enableAudio"`
 
   EnableVideo bool `json:"enableVideo"`
+
+  EnableBinary bool `json:"enableBinary"`
 
 	Contacts *ChannelContacts `json:"contacts,omitempty"`
 
@@ -358,9 +373,13 @@ type NodeConfig struct {
 
 	EnableVideo bool `json:"enableVideo"`
 
+	EnableBinary bool `json:"enableBinary"`
+
 	EnableIce bool `json:"enableIce"`
 
-	IceUrl string `json:"iceUrl"`
+	IceService string `json:"iceService"`
+
+	IceURL string `json:"iceUrl"`
 
 	IceUsername string `json:"iceUsername"`
 
@@ -369,6 +388,10 @@ type NodeConfig struct {
 	KeyType string `json:"keyType"`
 
 	AccountStorage int64 `json:"accountStorage"`
+
+  TransformSupported bool `json:"transformSupported"`
+
+  AllowUnsealed bool `json:"allowUnsealed"`
 
   PushSupported bool `json:"pushSupported"`
 
@@ -439,7 +462,9 @@ type Phone struct {
 
   CalleeToken string `json:"calleeToken"`
 
-  IceUrl string `json:"iceUrl"`
+  Ice []IceURL `json:"ice,omitEmpty"`
+
+  IceURL string `json:"iceUrl"`
 
   IceUsername string `json:"iceUsername"`
 
@@ -544,11 +569,38 @@ type Call struct {
 
 	KeepAlive int32 `json:"keepAlive"`
 
-  IceUrl string `json:"iceUrl"`
+  IceService string `json:"iceService"`
+
+  Ice []IceURL `json:"ice,omitEmpty"`
+
+  IceURL string `json:"iceUrl"`
 
   IceUsername string `json:"iceUsername"`
 
   IcePassword string `json:"icePassword"`
+}
+
+type IceServers struct {
+
+  URLs []string `json:"urls"`
+
+  Username string `json:"username"`
+
+  Credential string `json:"credential"`
+}
+
+type IceService struct {
+
+  Servers IceServers `json:"iceServers"`
+}
+
+type IceURL struct {
+
+  URLs string `json:"urls"`
+
+  Username string `json:"username"`
+
+  Credential string `json:"credential"`
 }
 
 type Ring struct {
@@ -559,9 +611,21 @@ type Ring struct {
 
 	Index int32 `json:"index"`
 
-  IceUrl string `json:"iceUrl"`
+  Ice []IceURL `json:"ice,omitEmpty"`
+
+  IceURL string `json:"iceUrl"`
 
   IceUsername string `json:"iceUsername"`
 
   IcePassword string `json:"icePassword"`
+}
+
+type PushMessage struct {
+  Title string `json:"title"`
+  Body string `json:"body"`
+  Token string `json:"token"`
+}
+
+type PushResponse struct {
+  Message string `json:"message"`
 }

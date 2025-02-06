@@ -44,6 +44,22 @@ export function useAppContext() {
     setState((s) => ({ ...s, ...value }))
   }
 
+  const setDeviceToken = async () => {
+    if (!deviceToken.current) {
+      try {
+        const token = await messaging().getToken();
+        if (!token) {
+          throw new Error('null push token');
+        }
+        deviceToken.current = token;
+        pushType.current = "fcm";
+      }
+      catch(err) {
+        console.log(err);
+      }
+    }
+  }
+
   useEffect(() => {
 
     // select the unified token if available
@@ -53,16 +69,7 @@ export function useAppContext() {
     });
 
     (async () => {
-      try {
-        const token = await messaging().getToken();
-        if (!deviceToken.current) {
-          deviceToken.current = token;
-          pushType.current = "fcm";
-        }
-      }
-      catch (err) {
-        console.log(err);
-      }
+      await setDeviceToken();
       access.current = await store.actions.init();
       if (access.current) {
         await setSession();
@@ -111,9 +118,10 @@ export function useAppContext() {
       if (!init.current || access.current) {
         throw new Error('invalid session state');
       }
+      await setDeviceToken();
       updateState({ loggedOut: false });
       await addAccount(server, username, password, token);
-      const session = await setLogin(username, server, password, getApplicationName(), getVersion(), getDeviceId(), deviceToken.current, pushType.current, notifications)
+      const session = await setLogin(username, server, password, null, getApplicationName(), getVersion(), getDeviceId(), deviceToken.current, pushType.current, notifications)
       access.current = { loginTimestamp: session.created, server, token: session.appToken, guid: session.guid };
       await store.actions.setSession(access.current);
       await setSession();
@@ -125,6 +133,7 @@ export function useAppContext() {
       if (!init.current || access.current) {
         throw new Error('invalid session state');
       }
+      await setDeviceToken();
       updateState({ loggedOut: false });
       const session = await setAccountAccess(server, token, getApplicationName(), getVersion(), getDeviceId(), deviceToken.current, pushType.current, notifications);
       access.current = { loginTimestamp: session.created, server, token: session.appToken, guid: session.guid };
@@ -134,13 +143,14 @@ export function useAppContext() {
         messaging().requestPermission().then(status => {})
       }
     },
-    login: async (username, password) => {
+    login: async (username, password, code) => {
       if (!init.current || access.current) {
         throw new Error('invalid session state');
       }
+      await setDeviceToken();
       updateState({ loggedOut: false });
       const acc = username.includes('/') ? username.split('/') : username.split('@');
-      const session = await setLogin(acc[0], acc[1], password, getApplicationName(), getVersion(), getDeviceId(), deviceToken.current, pushType.current, notifications)
+      const session = await setLogin(acc[0], acc[1], password, code, getApplicationName(), getVersion(), getDeviceId(), deviceToken.current, pushType.current, notifications)
       access.current = { loginTimestamp: session.created, server: acc[1], token: session.appToken, guid: session.guid };
       await store.actions.setSession(access.current);
       await setSession(); 
@@ -182,7 +192,9 @@ export function useAppContext() {
   }
 
   const setWebsocket = (session) => {
-    ws.current = createWebsocket(`wss://${session.server}/status?mode=ring`);
+    const insecure = /^(?!0)(?!.*\.$)((1?\d?\d|25[0-5]|2[0-4]\d)(\.|:\d+$|$)){4}$/.test(session.server);
+    const protocol = insecure ? 'ws' : 'wss';
+    ws.current = createWebsocket(`${protocol}://${session.server}/status?mode=ring`);
     ws.current.onmessage = (ev) => {
       if (ev.data == '') {
         actions.logout();
@@ -201,8 +213,9 @@ export function useAppContext() {
           card.actions.setRevision(cardRev);
         }
         else if (activity.ring) {
-          const { cardId, callId, calleeToken, iceUrl, iceUsername, icePassword } = activity.ring;
-          ring.actions.ring(cardId, callId, calleeToken, iceUrl, iceUsername, icePassword);
+          const { cardId, callId, calleeToken, ice, iceUrl, iceUsername, icePassword } = activity.ring;
+          const config = ice ? ice : [{ urls: iceUrl, username: iceUsername, credential: icePassword }];
+          ring.actions.ring(cardId, callId, calleeToken, config);
         }
         else {
           const { profile: profileRev, account: accountRev, channel: channelRev, card: cardRev } = activity;

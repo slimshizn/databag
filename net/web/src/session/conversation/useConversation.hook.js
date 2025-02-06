@@ -1,5 +1,5 @@
 import { useContext, useRef, useState, useEffect } from 'react';
-import { ViewportContext } from 'context/ViewportContext';
+import { SettingsContext } from 'context/SettingsContext';
 import { AccountContext } from 'context/AccountContext';
 import { ConversationContext } from 'context/ConversationContext';
 import { UploadContext } from 'context/UploadContext';
@@ -9,7 +9,7 @@ import { ProfileContext } from 'context/ProfileContext';
 import { isUnsealed, getChannelSeals, getContentKey, encryptTopicSubject } from 'context/sealUtil';
 import { decryptTopicSubject } from 'context/sealUtil';
 import { getProfileByGuid } from 'context/cardUtil';
-import * as DOMPurify from 'dompurify';
+import { sanitizeUrl } from '@braintree/sanitize-url';
 
 export function useConversation(cardId, channelId) {
 
@@ -22,12 +22,15 @@ export function useConversation(cardId, channelId) {
     sealed: false,
     contentKey: null,
     busy: false,
+    colors: {},
+    strings: {},
+    menuStyle: {},
   });
 
   const profile = useContext(ProfileContext);
   const card = useContext(CardContext);
   const account = useContext(AccountContext);
-  const viewport = useContext(ViewportContext);  
+  const settings = useContext(SettingsContext);  
   const conversation = useContext(ConversationContext);
   const upload = useContext(UploadContext);
   const store = useContext(StoreContext);
@@ -41,8 +44,9 @@ export function useConversation(cardId, channelId) {
   }
 
   useEffect(() => {
-    updateState({ display: viewport.state.display });
-  }, [viewport]);
+    const { strings, menuStyle, display, colors } = settings.state;
+    updateState({ strings, menuStyle, display, colors });
+  }, [settings.state]);
 
   useEffect(() => {
     const { dataType, data } = conversation.state.channel?.data?.channelDetail || {};
@@ -125,7 +129,7 @@ export function useConversation(cardId, channelId) {
 
     syncChannel();
     // eslint-disable-next-line
-  }, [conversation.state, profile.state, card.state]);
+  }, [conversation.state, profile.state, card.state, settings.state]);
  
   useEffect(() => {
     topics.current = new Map();
@@ -134,29 +138,27 @@ export function useConversation(cardId, channelId) {
   }, [state.contentKey]);
 
   const clickableText = (text) => {
-      const urlPattern = new RegExp('^(https?:\\/\\/)?'+ // protocol
-    '((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // domain name
-    '((\\d{1,3}\\.){3}\\d{1,3}))'+ // OR ip (v4) address
-    '(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // port and path
-    '(\\?[;&a-z\\d%_.~+=-]*)?'+ // query string
-    '(\\#[-a-z\\d_]*)?$','i'); // fragment locator
 
+      const urlPattern = new RegExp('(https?:\\/\\/)?(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,4}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)');
       const hostPattern = new RegExp('^https?:\\/\\/', 'i');
 
       let group = '';
       let clickable = [];
-      const words = text === [] ? '' : DOMPurify.sanitize(text).split(' ');
+
+      const words = !text ? [] : text.split(' ');
+
       words.forEach((word, index) => {
         if (!!urlPattern.test(word)) {
           clickable.push(<span key={index}>{ group }</span>);
           group = '';
           const url = !!hostPattern.test(word) ? word : `https://${word}`;
-          clickable.push(<a key={'link-'+index} target="_blank" rel="noopener noreferrer" href={url}>{ `${word} ` }</a>);
+          clickable.push(<a key={`link-${index}`} target="_blank" rel="noopener noreferrer" href={sanitizeUrl(url)}>{ word }</a>);
         }
         else {
           group += `${word} `;
         }
       })
+
       clickable.push(<span key={words.length}>{ group }</span>);
       return <p>{ clickable }</p>;
   };
@@ -171,13 +173,28 @@ export function useConversation(cardId, channelId) {
     const now = new Date();
     const offset = now.getTime() - date.getTime();
     if(offset < 86400000) {
-      item.createdStr = date.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+      if (settings.state.timeFormat === '12h') {
+        item.createdStr = date.toLocaleTimeString("en-US", {hour: 'numeric', minute:'2-digit'});
+      }
+      else {
+        item.createdStr = date.toLocaleTimeString("en-GB", {hour: 'numeric', minute:'2-digit'});
+      }
     }
     else if (offset < 31449600000) {
-      item.createdStr = date.toLocaleDateString("en-US", {day: 'numeric', month:'numeric'});
+      if (settings.state.dateFormat === 'mm/dd') {
+        item.createdStr = date.toLocaleDateString("en-US", {day: 'numeric', month:'numeric'});
+      }
+      else {
+        item.createdStr = date.toLocaleDateString("en-GB", {day: 'numeric', month:'numeric'});
+      }
     }
     else {
-      item.createdStr = date.toLocaleDateString("en-US");
+      if (settings.state.dateFormat === 'mm/dd') {
+        item.createdStr = date.toLocaleDateString("en-US");
+      }
+      else {
+        item.createdStr = date.toLocaleDateString("en-GB");
+      }
     }
 
     if (detail.guid === identity.guid) {
@@ -188,7 +205,7 @@ export function useConversation(cardId, channelId) {
         item.nameSet = true;
       }
       else {
-        item.name = identity.node ? `${identity.handle}@${identity.node}` : identity.handle ? identity.handle : 'unknown';
+        item.name = identity.node ? `${identity.handle}/${identity.node}` : identity.handle ? identity.handle : 'unknown';
         item.nameSet = false;
       }
     }
@@ -202,7 +219,7 @@ export function useConversation(cardId, channelId) {
           item.nameSet = true;
         }
         else {
-          item.name = contact.node ? `${contact.handle}@${contact.node}` : contact.handle ? contact.handle : 'unknown';
+          item.name = contact.node ? `${contact.handle}/${contact.node}` : contact.handle ? contact.handle : 'unknown';
           item.nameSet = false;
         }
       }
@@ -220,7 +237,7 @@ export function useConversation(cardId, channelId) {
           item.assets = message.assets;
           item.text = message.text;
           item.clickable = clickableText(message.text);
-          item.textColor = message.textColor ? message.textColor : '#444444';
+          item.textColor = message.textColor ? message.textColor : null;
           item.textSize = message.textSize ? message.textSize : 14;
         }
         if (detail.dataType === 'sealedtopic' && state.contentKey) {
@@ -228,7 +245,7 @@ export function useConversation(cardId, channelId) {
           item.assets = subject.message.assets;
           item.text = subject.message.text;
           item.clickable = clickableText(subject.message.text);
-          item.textColor = subject.message.textColor ? subject.message.textColor : '#444444';
+          item.textColor = subject.message.textColor ? subject.message.textColor : null;
           item.textSize = subject.message.textSize ? subject.message.textSize : 14;
         }
       }

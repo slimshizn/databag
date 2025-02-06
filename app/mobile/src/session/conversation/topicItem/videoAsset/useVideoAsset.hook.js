@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, useContext } from 'react';
 import { ConversationContext } from 'context/ConversationContext';
 import { Image } from 'react-native';
-import { useWindowDimensions } from 'react-native';
+import { useWindowDimensions, Platform } from 'react-native';
+import RNFS from "react-native-fs";
+import Share from 'react-native-share';
 
 export function useVideoAsset(asset) {
 
@@ -19,6 +21,7 @@ export function useVideoAsset(asset) {
     thumbLoaded: false,
     videoLoaded: false,
     controls: false,
+    downloaded: false,
   });
 
   const controls = useRef(null);
@@ -71,6 +74,39 @@ export function useVideoAsset(asset) {
   }, [asset]);
 
   const actions = {
+    share: async () => {
+      const epoch = Math.ceil(Date.now() / 1000);
+      const path = RNFS.TemporaryDirectoryPath + epoch + '.mp4';
+      if (await RNFS.exists(path)) {
+        await RNFS.unlink(path);
+      }
+      if (state.url.substring(0, 7) === 'file://') {
+        await RNFS.copyFile(state.url.split('?')[0], path);
+      }
+      else {
+        await RNFS.downloadFile({ fromUrl: state.url, toFile: path }).promise;
+      }
+      Share.open({ url: path });
+    },
+    download: async () => {
+      if (!state.downloaded) {
+        updateState({ downloaded: true });
+        const epoch = Math.ceil(Date.now() / 1000);
+        const dir = Platform.OS === 'ios' ? RNFS.DocumentDirectoryPath : RNFS.DownloadDirectoryPath;
+        const path = `${dir}/databag_${epoch}.mp4`
+        if (state.url.substring(0, 7) === 'file://') {
+          await RNFS.copyFile(state.url.substring(7).split('?')[0], path);
+        }
+        else {
+          await RNFS.downloadFile({ fromUrl: state.url, toFile: path }).promise;
+        }
+        if (Platform.OS !== 'ios') {
+          await RNFS.scanFile(`${path}`);
+        }
+        updateState({ showDownloaded: true });
+        setTimeout(() => { updateState({ showDownloaded: false }) }, 2000);
+      }
+    },
     setThumbSize: (e) => {
       const { width, height } = e.nativeEvent || {};
       updateState({ thumbLoaded: true, thumbRatio: width / height });

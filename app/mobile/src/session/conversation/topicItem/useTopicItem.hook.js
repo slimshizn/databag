@@ -35,8 +35,10 @@ export function useTopicItem(item, hosting, remove, contentKey) {
     activeId: null,
     fontSize: 14,
     fontColor: Colors.text,
+    shareable: false,
     editable: false,
     deletable: false,
+    flagable: false,
     assets: [],
     sharing: false,
     monthLast: false,
@@ -254,10 +256,12 @@ export function useTopicItem(item, hosting, remove, contentKey) {
       }
     }
 
+    const shareable = parsed;
     const editable = guid === identity?.guid && parsed;
-    const deletable = editable || hosting;
+    const flagable = guid !== identity?.guid;
+    const deletable = guid === identity?.guid || hosting;
 
-    updateState({ logo, name, nameSet, known, sealed, message, clickable, fontSize, fontColor, timestamp, transform, status, assets, deletable, editable, editData: parsed, editMessage: message, editType: dataType });
+    updateState({ logo, name, nameSet, known, sealed, message, clickable, fontSize, fontColor, timestamp, transform, status, assets, deletable, shareable, editable, flagable, editData: parsed, editMessage: message, editType: dataType });
   }, [conversation.state, card.state, account.state, profile.state, item, contentKey]);
 
   const unsealTopic = async (topicId, revision, topicDetail) => {
@@ -275,20 +279,14 @@ export function useTopicItem(item, hosting, remove, contentKey) {
   };
 
   const clickableText = (text) => {
-      const urlPatternn = new RegExp('^(https?:\\/\\/)?'+ // protocol
-    '((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|'+ // domain name
-    '((\\d{1,3}\\.){3}\\d{1,3}))'+ // OR ip (v4) address
-    '(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*'+ // port and path
-    '(\\?[;&a-z\\d%_.~+=-]*)?'+ // query string
-    '(\\#[-a-z\\d_]*)?$','i'); // fragment locator
-
+      const urlPattern = new RegExp('(https?:\\/\\/)?(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,4}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)');
       const hostPattern = new RegExp('^https?:\\/\\/', 'i');
 
       let clickable = [];
       let group = '';
       const words = text == null ? [''] : text.split(' ');
       words.forEach((word, index) => {
-        if (!!urlPatternn.test(word)) {
+        if (!!urlPattern.test(word)) {
           clickable.push(<Text key={index}>{ group }</Text>);
           group = '';
           const url = !!hostPattern.test(word) ? word : `https://${word}`;
@@ -301,6 +299,12 @@ export function useTopicItem(item, hosting, remove, contentKey) {
       clickable.push(<Text key={words.length}>{ group }</Text>);
       return <Text>{ clickable }</Text>;
   };
+
+  const getExtension = async (path, type) => {
+    if (type === 'video') {
+        return 'mp4';
+      }
+  }
 
   const actions = {
     showCarousel: async (index) => {
@@ -340,7 +344,20 @@ export function useTopicItem(item, hosting, remove, contentKey) {
               updateState({ assets: [ ...assets ]});
             };
 
-            asset.decrypted = path;
+            if (asset.type === 'image') {
+              const prefix = await RNFS.read(path, 64, 0, "base64");
+              const ext = prefix.startsWith('R0lGODlh') ? '.gif' : '.jpg';
+              const exists = await RNFS.exists(path + ext);
+              if (exists) {
+                RNFS.unlink(path + ext);
+              }
+              await RNFS.moveFile(path, path + ext);
+              asset.decrypted = path + ext;
+            }
+            else {
+              asset.decrypted = path;
+            }
+            
             assets[cur] = { ...asset };
             updateState({ assets: [ ...assets ]});
           };
@@ -397,6 +414,7 @@ export function useTopicItem(item, hosting, remove, contentKey) {
               const src = blob.path();
               const dir = src.split('/').slice(0,-1).join('/')
               const dst = dir + '/' + asset + '.' + getExtension(type);
+
               try {
                 await fs.unlink(dst);
               }

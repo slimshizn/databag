@@ -145,7 +145,22 @@ const APPQueuePhoto = "photo"
 const APPQueueDefault = ""
 
 //APPDefaultPath config for default path to store assets
-const APPDefaultPath = "./asset"
+const APPDefaultPath = "/tmp/databag/assets"
+
+//APPMFAIssuer name servive
+const APPMFAIssuer = "Databag"
+
+//APPMFAFailPeriod time window login failures can occur
+const APPMFAFailPeriod = 300
+
+//APPMFAFailCount limit of login failures in period
+const APPMFAFailCount = 4
+
+//APPMFASHA256 internal mfa algorithm sha256
+const APPMFASHA256 = "sha256"
+
+//APPMFASHA1 internal mfa alogirthm sha1
+const APPMFASHA1 = "sha1"
 
 //AppCardStatus compares cards status with string
 func AppCardStatus(status string) bool {

@@ -5,7 +5,7 @@ export const styles = StyleSheet.create({
   container: {
     position: 'relative',
     borderRadius: 8,
-    backgroundColor: Colors.formBackground,
+    backgroundColor: Colors.lightgrey,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -25,14 +25,23 @@ export const styles = StyleSheet.create({
     paddingRight: 48,
     color: Colors.text,
   },
-  close: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
+  share: {
     paddingTop: 4,
     paddingBottom: 4,
     paddingLeft: 8,
     paddingRight: 8,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  close: {
+    paddingTop: 4,
+    paddingBottom: 4,
+    paddingLeft: 8,
+    paddingRight: 8,
+    position: 'absolute',
+    top: 0,
+    right: 0,
   },
   player: {
     display: 'none',
@@ -49,6 +58,24 @@ export const styles = StyleSheet.create({
     paddingTop: 16,
     fontSize: 12,
     color: '#888888',
+  },
+  downloaded: {
+    top: 0,
+    position: 'absolute',
+    marginTop: 8,
+    display: 'flex',
+    backgroundColor: Colors.grey,
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 8,
+    paddingRight: 8,
+    paddingTop: 2,
+    paddingBottom: 2,
+  },
+  downloadedLabel: {
+    color: Colors.white,
+    paddingLeft: 8,
   },
 })
 

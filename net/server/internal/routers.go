@@ -16,7 +16,7 @@ type route struct {
 type routes []route
 
 //NewRouter allocate router for databag API
-func NewRouter() *mux.Router {
+func NewRouter(path string) *mux.Router {
 
 	go SendNotifications()
 
@@ -33,7 +33,7 @@ func NewRouter() *mux.Router {
 			Handler(handler)
 	}
 
-	fs := http.FileServer(http.Dir("/app/databag/net/web/build/"))
+	fs := http.FileServer(http.Dir(path));
 	router.PathPrefix("/").Handler(http.StripPrefix("/", fs))
 
 	return router
@@ -202,6 +202,27 @@ var endpoints = routes{
 		SetAccountSearchable,
 	},
 
+  route{
+    "AddMultiFactorAuth",
+    strings.ToUpper("Post"),
+    "/account/mfauth",
+    AddMultiFactorAuth,
+  },
+
+  route{
+    "SetMultiFactorAuth",
+    strings.ToUpper("Put"),
+    "/account/mfauth",
+    SetMultiFactorAuth,
+  },
+
+  route{
+    "RemoveMultiFactorAuth",
+    strings.ToUpper("Delete"),
+    "/account/mfauth",
+    RemoveMultiFactorAuth,
+  },
+
 	route{
 		"AddNodeAccount",
 		strings.ToUpper("Post"),
@@ -257,6 +278,41 @@ var endpoints = routes{
 		"/admin/accounts/import",
 		ImportAccount,
 	},
+
+  route{
+    "SetAdminAccess",
+    strings.ToUpper("Put"),
+    "/admin/access",
+    SetAdminAccess,
+  },
+
+  route{
+    "GetAdminMFAuth",
+    strings.ToUpper("Get"),
+    "/admin/mfauth",
+    GetAdminMFAuth,
+  },
+
+  route{
+    "AddAdminMFAuth",
+    strings.ToUpper("Post"),
+    "/admin/mfauth",
+    AddAdminMFAuth,
+  },
+
+  route{
+    "SetAdminMFAuth",
+    strings.ToUpper("Put"),
+    "/admin/mfauth",
+    SetAdminMFAuth,
+  },
+
+  route{
+    "RemoveAdminMFAuth",
+    strings.ToUpper("Delete"),
+    "/admin/mfauth",
+    RemoveAdminMFAuth,
+  },
 
 	route{
 		"RemoveNodeAccount",

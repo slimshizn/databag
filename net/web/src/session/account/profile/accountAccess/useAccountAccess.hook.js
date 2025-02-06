@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useContext } from 'react';
 import { AccountContext } from 'context/AccountContext';
 import { ProfileContext } from 'context/ProfileContext';
+import { SettingsContext } from 'context/SettingsContext';
 import { generateSeal, unlockSeal, updateSeal } from 'context/sealUtil';
 import { getUsername } from 'api/getUsername';
 export function useAccountAccess() {
@@ -18,6 +19,8 @@ export function useAccountAccess() {
     searchable: null,
     checked: true,
 
+    pushEnabled: false,
+    webPushKey: null,
     sealEnabled: false,
     sealMode: null,
     sealPassword: null,
@@ -25,12 +28,35 @@ export function useAccountAccess() {
     sealDelete: null,
     sealUnlock: null,
 
+    display: null,
+    strings: {},
+    menuStyle: {},
+    timeFormat: '12h',
+    dateFormat: 'mm/dd',
+    theme: null,
+    themes: [],
+    language: null,
+    languages: [],
+    audioId: null,
+    audioInputs: [],
+    videoId: null,
+    videoInputs: [],
+
+    mfaModal: false,
+    mfaEnabled: null,
+    mfaSecret: null,
+    mfaImage: null,
+    mfaCode: null,
+    mfaError: false,
+    mfaErrorCode: null,
+
     seal: null,
     sealKey: null,
   });
 
   const profile = useContext(ProfileContext);
   const account = useContext(AccountContext);  
+  const settings = useContext(SettingsContext);
   const debounce = useRef(null);
 
   const updateState = (value) => {
@@ -43,9 +69,15 @@ export function useAccountAccess() {
   }, [profile.state]);
 
   useEffect(() => {
-    const { seal, sealKey, status } = account.state;
-    updateState({ searchable: status.searchable, seal, sealKey });
+    const { seal, sealKey, status, webPushKey } = account.state;
+    const { searchable, mfaEnabled, pushEnabled } = status || {};
+    updateState({ searchable, mfaEnabled, seal, sealKey, webPushKey, pushEnabled });
   }, [account.state]);
+
+  useEffect(() => {
+    const { display, audioId, audioInputs, videoId, videoInputs, strings, menuStyle, timeFormat, dateFormat, theme, themes, language, languages } = settings.state;
+    updateState({ display, audioId, audioInputs, videoId, videoInputs, strings, menuStyle, timeFormat, dateFormat, theme, themes, language, languages });
+  }, [settings.state]);
 
   const sealUnlock = async () => {
     const unlocked = unlockSeal(state.seal, state.sealUnlock);
@@ -85,6 +117,24 @@ export function useAccountAccess() {
   }
 
   const actions = {
+    setTimeFormat: (timeFormat) => {
+      settings.actions.setTimeFormat(timeFormat.target.value);
+    },
+    setDateFormat: (dateFormat) => {
+      settings.actions.setDateFormat(dateFormat.target.value);
+    },
+    setTheme: (theme) => {
+      settings.actions.setTheme(theme);
+    },
+    setLanguage: (language) => {
+      settings.actions.setLanguage(language);
+    },
+    setAudio: (device) => {
+      settings.actions.setAudioInput(device);
+    },
+    setVideo: (device) => {
+      settings.actions.setVideoInput(device);
+    },
     setEditSeal: () => {
       let sealMode;
       let sealEnabled = isEnabled();
@@ -146,7 +196,7 @@ export function useAccountAccess() {
       updateState({ sealEnabled: enable, sealMode });
     },
     canSaveSeal: () => {
-      if (state.sealMode === 'disabling' && state.sealDelete === 'delete') {
+      if (state.sealMode === 'disabling' && state.sealDelete === state.strings.delete) {
         return true;
       }
       if (state.sealMode === 'enabling' && state.sealPassword && state.sealPassword === state.sealConfirm) {
@@ -267,6 +317,68 @@ export function useAccountAccess() {
           throw new Error('failed to set searchable');
         }
       }
+    },
+    setPushEnabled: async (flag) => {
+      if (!state.busy) {
+        try {
+          updateState({ busy: true });
+          await account.actions.setPushEnabled(flag);
+          updateState({ busy: false });
+        }
+        catch (err) {
+          console.log(err);
+          updateState({ busy: false });
+          throw new Error('failed to set searchable');
+        }
+      }
+    }, 
+    setCode: async (code) => {
+      updateState({ mfaCode: code });
+    },
+    enableMFA: async () => {
+      if (!state.busy) {
+        try {
+          updateState({ busy: true, mfaSecret: null, mfaImage: null, mfaCode: '' });
+          const mfa = await account.actions.enableMFA();
+          updateState({ busy: false, mfaModal: true, mfaError: false, mfaSecret: mfa.secretText, mfaImage: mfa.secretImage, mfaCode: '' });
+        }
+        catch (err) {
+          console.log(err);
+          updateState({ busy: false });
+          throw new Error('faild to enable mfa');
+        }
+      }   
+    },
+    disableMFA: async () => {
+      if (!state.busy) {
+        try {
+          updateState({ busy: true });
+          await account.actions.disableMFA();
+          updateState({ busy: false });
+        }
+        catch (err) {
+          console.log(err);
+          updateState({ busy: false });
+          throw new Error('failed to disable mfa');
+        }
+      }
+    },
+    confirmMFA: async () => {
+      if (!state.busy) {
+        try {
+          updateState({ busy: true });
+          await account.actions.confirmMFA(state.mfaCode);
+          updateState({ busy: false, mfaModal: false });
+        }
+        catch (err) {
+          const msg = err?.message;
+          updateState({ busy: false, mfaError: true, mfaErrorCode: msg });
+          throw new Error('failed to confirm mfa');
+        }
+      }
+    },
+    dismissMFA: async () => {
+      updateState({ mfaModal: false });
     },
   };
 

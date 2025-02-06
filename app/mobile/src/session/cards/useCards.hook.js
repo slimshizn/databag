@@ -10,6 +10,8 @@ export function useCards() {
   const [state, setState] = useState({
     cards: [],
     enableIce: false,
+    sealable: false,
+    allowUnsealed: false,
     strings: getLanguageStrings(),
     sort: false,
     filter: null,
@@ -25,25 +27,32 @@ export function useCards() {
   }
 
   useEffect(() => {
-    const { enableIce } = account.state.status || {};
-    updateState({ enableIce });
+    const { enableIce, allowUnsealed } = account.state.status || {};
+    const { status, sealKey } = account.state;
+    if (status?.seal?.publicKey && sealKey?.public && sealKey?.private && sealKey?.public === status.seal.publicKey) {
+      updateState({ sealable: true, allowUnsealed, enableIce });
+    }
+    else {
+      updateState({ sealable: false, allowUnsealed, enableIce });
+    }
   }, [account.state]);
 
   const setCardItem = (item) => {
     const { profile, detail, cardId, blocked, offsync } = item.card || { profile: {}, detail: {} }
-    const { name, handle, node, guid, location, description, imageSet } = profile;
+    const { name, handle, node, guid, location, description, imageSet, seal } = profile;
 
     return {
       cardId: cardId,
       name: name,
       handle: handle,
-      username: `${handle}/${node}`,
+      username: node ? `${handle}/${node}` : handle,
       node: node,
       guid: guid,
       location: location,
       description: description,
       status: detail.status,
       token: detail.token,
+      seal: seal,
       offsync: offsync,
       blocked: blocked,
       updated: detail.statusUpdated,
@@ -111,8 +120,6 @@ export function useCards() {
       updateState({ filter });
     },
     setSort: (sort) => {
-console.log("SETTTING : ", sort);
-
       updateState({ sort });
     },
   };

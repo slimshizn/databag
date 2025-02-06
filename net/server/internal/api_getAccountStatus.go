@@ -35,8 +35,11 @@ func GetAccountStatus(w http.ResponseWriter, r *http.Request) {
 	status.Disabled = account.Disabled
 	status.ForwardingAddress = account.Forward
 	status.Searchable = account.Searchable
+  status.MFAEnabled = account.MFAEnabled && account.MFAConfirmed
   status.Sealable = true
   status.EnableIce = getBoolConfigValue(CNFEnableIce, false)
+  status.AllowUnsealed = getBoolConfigValue(CNFAllowUnsealed, false)
+  status.WebPushKey = getStrConfigValue(CNFWebPublicKey, "");
   status.PushEnabled = session.PushEnabled
   status.Seal = seal
 	WriteResponse(w, status)

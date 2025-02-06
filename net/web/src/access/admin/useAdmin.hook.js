@@ -2,8 +2,9 @@ import { useContext, useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import { getNodeStatus } from 'api/getNodeStatus';
 import { setNodeStatus } from 'api/setNodeStatus';
-import { getNodeConfig } from 'api/getNodeConfig';
+import { setNodeAccess } from 'api/setNodeAccess';
 import { AppContext } from 'context/AppContext';
+import { SettingsContext } from 'context/SettingsContext';
 
 export function useAdmin() {
 
@@ -12,10 +13,16 @@ export function useAdmin() {
     placeholder: '',
     unclaimed: null,
     busy: false,
+    strings: {},
+    menuStyle: {},
+    mfaModal: false,
+    mfaCode: null,
+    mfaError: null,
   });
 
   const navigate = useNavigate();
   const app = useContext(AppContext);
+  const settings = useContext(SettingsContext);
 
   const updateState = (value) => {
     setState((s) => ({ ...s, ...value }));
@@ -48,9 +55,22 @@ export function useAdmin() {
           if (state.unclaimed === true) {
             await setNodeStatus(state.password);
           }
-          await getNodeConfig(state.password);
+          try {
+            const session = await setNodeAccess(state.password, state.mfaCode);
+            app.actions.setAdmin(session);          
+          }
+          catch (err) {
+            const msg = err?.message;
+            if (msg === '405' || msg === '403' || msg === '429') {
+              updateState({ busy: false, mfaModal: true, mfaError: msg });
+            }
+            else {
+              console.log(err);
+              updateState({ busy: false })
+              throw new Error('login failed: check your username and password');
+            }
+          }
           updateState({ busy: false });
-          app.actions.setAdmin(state.password);          
         }
         catch(err) {
           console.log(err);
@@ -59,7 +79,18 @@ export function useAdmin() {
         }
       }
     },
+    setCode: (mfaCode) => {
+      updateState({ mfaCode });
+    },
+    dismissMFA: () => {
+      updateState({ mfaModal: false, mfaCode: null });
+    },
   }
+
+  useEffect(() => {
+    const { strings, menuStyle } = settings.state;
+    updateState({ strings, menuStyle });
+  }, [settings.state]);
 
   return { state, actions };
 }
